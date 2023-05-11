@@ -1,27 +1,24 @@
 #![no_std]
 #![no_main]
 
-extern crate sx127x_lora;
 use core::fmt::Write;
-use embedded_graphics::{
-    mono_font::{ascii::FONT_9X15, ascii::FONT_9X15_BOLD, MonoTextStyle},
-    pixelcolor::BinaryColor,
-    prelude::*,
-    text::{Alignment, Text}
-};
 use esp32_hal::{
     clock::ClockControl,
     gpio::IO,
-    i2c::I2C,
     peripherals::Peripherals,
     prelude::*,
     timer::TimerGroup,
-    Delay, Rtc,
+    uart::{
+        config::{Config, DataBits, Parity, StopBits},
+        TxRxPins,
+    },
+    Delay, Rtc, Uart,
 };
 use esp_backtrace as _;
 use esp_println::println;
 use heapless::String;
-use ssd1306::{prelude::*, I2CDisplayInterface, Ssd1306};
+
+use nb::block;
 
 #[entry]
 fn main() -> ! {
@@ -38,57 +35,46 @@ fn main() -> ! {
 
     // delay
     let mut delay = Delay::new(&clocks);
-
-    // Embedded Graphics
-    let style: MonoTextStyle<BinaryColor> = MonoTextStyle::new(&FONT_9X15, BinaryColor::On);
-    let text_style_big = MonoTextStyle::new(&FONT_9X15_BOLD, BinaryColor::On);
     //
     let io = IO::new(peripherals.GPIO, peripherals.IO_MUX);
 
-    // I2C Sensor Settings
-    let i2c = I2C::new(
-        peripherals.I2C0,
-        io.pins.gpio21,
-        io.pins.gpio22,
-        10u32.kHz(),
-        &mut system.peripheral_clock_control,
-        &clocks,
+    let config = Config {
+        baudrate: 9600,
+        data_bits: DataBits::DataBits8,
+        parity: Parity::ParityNone,
+        stop_bits: StopBits::STOP1,
+    };
+
+    let pins = TxRxPins::new_tx_rx(
+        io.pins.gpio17.into_push_pull_output(),
+        io.pins.gpio16.into_floating_input(),
+    );
+
+    let mut serial1 = Uart::new_with_config(
+        peripherals.UART1,
+        Some(config),
+        Some(pins),
+        &clocks
     );
 
     // onboard LED
     let mut led = io.pins.gpio2.into_push_pull_output();
 
-    // Display interface
-    let interface = I2CDisplayInterface::new(i2c);
-    let mut display = Ssd1306::new(interface, DisplaySize128x64, DisplayRotation::Rotate0)
-        .into_buffered_graphics_mode();
-    display.init().unwrap();
-
     let mut hello_msg: String<20> = String::new();
+    write!(hello_msg, "Hello World!").unwrap();
 
     loop {
         wdt.feed();
         led.set_high().unwrap();
+        println!("Hello\n");
 
-        hello_msg.clear();
-        write!(hello_msg, "Hello World!").unwrap();
-        println!("Hello{}", hello_msg);
-        Text::with_alignment(
-            hello_msg.as_str(),
-            display.bounding_box().center() + Point::new(0, -20),
-            text_style_big,
-            Alignment::Center,
-        )
-        .draw(&mut display)
-        .unwrap();
+        serial1.write_str("Hallo").unwrap();
+        delay.delay_ms(5000u32);
 
-        // Write buffer to display
-        display.flush().unwrap();
-        // Clear display buffer
-        display.clear();
+        // serial1.write(0x42).ok();
 
-        led.set_low().unwrap();
         // Wait 5 seconds
         delay.delay_ms(5000u32);
+        led.set_low().unwrap();
     }
 }

@@ -1,5 +1,5 @@
 [target.xtensa-esp32-none-elf]
-runner = "espflash flash --port /dev/ttyUSB0 --monitor --baud 921600"
+runner = "espflash flash --port /dev/ttyUSB1 --monitor --baud 921600"
 
 [build]
 rustflags = [
