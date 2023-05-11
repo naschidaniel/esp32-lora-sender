@@ -31,7 +31,7 @@ fn main() -> ! {
     let mut wdt = timer_group0.wdt;
     let mut rtc = Rtc::new(peripherals.RTC_CNTL);
     rtc.rwdt.disable();
-    wdt.start(10u64.secs());
+    wdt.start(30u64.secs());
 
     // delay
     let mut delay = Delay::new(&clocks);
@@ -66,15 +66,15 @@ fn main() -> ! {
     loop {
         wdt.feed();
         led.set_high().unwrap();
-        println!("Hello\n");
+        println!("Hello");
 
-        serial1.write_str("Hallo").unwrap();
+        serial1.write_str("Hallo\n").unwrap();
         delay.delay_ms(5000u32);
 
         // serial1.write(0x42).ok();
 
         // Wait 5 seconds
-        delay.delay_ms(5000u32);
         led.set_low().unwrap();
+        delay.delay_ms(5000u32);
     }
 }
